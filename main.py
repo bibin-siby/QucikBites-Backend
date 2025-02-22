@@ -18,8 +18,8 @@ origins = [
 ]
 
 # MongoDB configuration
-MONGO_URI = "mongodb+srv://mongodbacc:mongodbacc@cluster0.r55es.mongodb.net/"
-DATABASE_NAME = "db_quickbites"
+MONGO_URI = ""
+DATABASE_NAME = ""
 
 UPLOAD_DIR = "uploads"  # Directory to save uploaded files
 
