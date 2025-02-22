@@ -1,9 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from bson import ObjectId
+from fastapi import FastAPI, HTTPException, File, UploadFile,Form
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
-from bson import ObjectId
 from fastapi.middleware.cors import CORSMiddleware
+import os
+import aiofiles
+from fastapi.staticfiles import StaticFiles
+from passlib.context import CryptContext  # For password hashing
 
 
 origins = [
@@ -16,6 +20,21 @@ origins = [
 # MongoDB configuration
 MONGO_URI = "mongodb+srv://mongodbacc:mongodbacc@cluster0.r55es.mongodb.net/"
 DATABASE_NAME = "db_quickbites"
+
+UPLOAD_DIR = "uploads"  # Directory to save uploaded files
+
+# Password hashing setup
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Utility function to hash passwords
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+# Utility function to verify passwords
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
 
 # FastAPI app
 @asynccontextmanager
@@ -30,7 +49,37 @@ async def lifespan(app: FastAPI):
     await mongo_client.close()
     print("MongoDB connection closed")
 
+ 
 app = FastAPI(lifespan=lifespan)
+
+
+# Utility function to save the file
+# async def save_file(file: UploadFile, upload_dir: str) -> str:
+#     os.makedirs(upload_dir, exist_ok=True)
+#     file_path = os.path.join(upload_dir, file.filename)
+#     async with aiofiles.open(file_path, "wb") as out_file:
+#         while content := await file.read(1024):
+#             await out_file.write(content)
+#     return file_path
+
+
+async def save_file(file: UploadFile, upload_dir: str) -> str:
+    login= print(photo)
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, file.filename)
+
+    async with aiofiles.open(file_path, "wb") as out_file:
+        while True:
+            content = await file.read(1024)
+            if not content:  # Handle empty reads
+                break
+            await out_file.write(content)
+    return file_path
+
+
+
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,6 +116,8 @@ class Login(BaseModel):
     email : str
     password : str
 
+
+
 @app.post('/signIn')
 async def create_user(user : User):
     user_data = user.model_dump()
@@ -75,9 +126,19 @@ async def create_user(user : User):
 
 @app.post('/login')
 async def read_user(user: Login):
-    result = await app.state.db["user"].find_one({"email": user.email, "password": user.password})
-    if result:
-        return { 'id': str(result['_id']), 'message': 'login successful'}
+    userData = await app.state.db["user"].find_one({"email": user.email, "password": user.password})
+    resData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
+    resData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
+    resData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
+
+    if userData:
+        return { 'id': str(userData['_id']), 'message': 'login successful','login':'User'}
+    elif resData:
+        return { 'id': str(resData['_id']), 'message': 'login successful','login':'Restaurant'}
+    elif resData:
+        return { 'id': str(resData['_id']), 'message': 'login successful','login':'Restaurant'}
+    elif resData:
+        return { 'id': str(resData['_id']), 'message': 'login successful','login':'Restaurant'}
     else:
         return { 'message': 'Invalid credentials' }
 
@@ -147,3 +208,45 @@ async def create_subcategory(sub : Subcategory):
     sub_data = sub.model_dump()
     result = await app.state.db["Subcategory"].insert_one(sub_data)
     return {"id" : str(result.inserted_id), "message" : "subcategory inserted successfully"}
+
+
+# @app.post('/restaurantRegister')
+# async def create_restaurant(restaurant : Restaurant):
+#     restaurant_data = restaurant.model_dump()
+#     result = await app.state.db["restaurant"].insert_one(restaurant_data)
+#     return{'id' : str(result.inserted_id), 'message' : "restaurant created successfully"}
+
+# class Restaurant(BaseModel):
+#     name : str
+#     email : str
+#     password : str
+#     address : str
+#     photo: str
+
+
+
+@app.post("/restaurantRegister/")
+async def create_restaurant(
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    address: str = Form(...),
+    photo: UploadFile = File(...)
+):
+    try:
+        # Save the file
+        saved_filename = await save_file(photo, UPLOAD_DIR)
+        file_url = f"http://127.0.0.1:8000/uploads/{photo.filename}"
+
+        # Hash the password
+        hashed_password = hash_password(password)
+        # Insert data into MongoDB
+        user_data = {"name": name,"address": address, "email": email, "password": hashed_password, "photo": file_url}
+        result = await app.state.db["restaurant"].insert_one(user_data)
+        return {
+            "id": str(result.inserted_id),
+            "message": "User created successfully",
+            "file_path": file_url,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
