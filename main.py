@@ -64,7 +64,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 async def save_file(file: UploadFile, upload_dir: str) -> str:
-    login= print(photo)
+    # login= print(photo)
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, file.filename)
 
@@ -126,19 +126,19 @@ async def create_user(user : User):
 
 @app.post('/login')
 async def read_user(user: Login):
-    userData = await app.state.db["user"].find_one({"email": user.email, "password": user.password})
+    # userData = await app.state.db["user"].find_one({"email": user.email, "password": user.password})
     resData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
-    resData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
-    resData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
+    adminData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
+    # deliveryBoyData = await app.state.db["restaurant"].find_one({"email": user.email, "password": user.password})
 
-    if userData:
-        return { 'id': str(userData['_id']), 'message': 'login successful','login':'User'}
-    elif resData:
+    # if userData:
+    #     return { 'id': str(userData['_id']), 'message': 'login successful','login':'User'}
+    if resData:
         return { 'id': str(resData['_id']), 'message': 'login successful','login':'Restaurant'}
-    elif resData:
-        return { 'id': str(resData['_id']), 'message': 'login successful','login':'Restaurant'}
-    elif resData:
-        return { 'id': str(resData['_id']), 'message': 'login successful','login':'Restaurant'}
+    elif adminData:
+        return { 'id': str(adminData['_id']), 'message': 'login successful','login':'Restaurant'}
+    # elif deliveryBoyData:
+    #     return { 'id': str(deliveryBoyData['_id']), 'message': 'login successful','login':'Restaurant'}
     else:
         return { 'message': 'Invalid credentials' }
 
